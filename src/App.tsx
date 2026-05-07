@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, CircleCheck, CircleX, Beer, Tv, Settings2 } from 'lucide-react';
 import { GameState, PrizeType, PRIZES } from './types';
 
@@ -8,31 +8,36 @@ const STADIUM_BG = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2
 const RONALDO_RENDER = "https://images.unsplash.com/photo-1518604666860-9ed391f76460?auto=format&fit=crop&q=80&w=1200"; 
 const KEEPER_RENDER = "https://images.unsplash.com/photo-1431324155629-1a6eda1dc231?auto=format&fit=crop&q=80&w=1200";
 
-const NET_PATTERN = `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0 L40 0 M0 40 L40 40 M0 0 L0 40 M40 0 L40 40' stroke='white' stroke-width='1' fill='none' opacity='0.3'/%3E%3C/svg%3E")`;
+const NET_PATTERN = `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,0 L40,0 M0,40 L40,40 M0,0 L0,40 M40,0 L40,40' stroke='white' stroke-width='1' fill='none' opacity='0.3'/%3E%3C/svg%3E")`;
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
   const [power, setPower] = useState(0);
-  const [direction, setDirection] = useState(1);
   const [result, setResult] = useState<{ success: boolean; prize?: PrizeType; diveDirection?: 'left' | 'right' | 'center' } | null>(null);
   const powerRef = useRef<number>(0);
+  
+  const directionRef = useRef<number>(1);
   
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (gameState === GameState.POWERING) {
       interval = setInterval(() => {
         setPower((prev) => {
-          // Mais lento para controlo preciso no comando da TV
-          let next = prev + (1.0 * direction);
-          if (next >= 100) { next = 100; setDirection(-1); }
-          else if (next <= 0) { next = 0; setDirection(1); }
+          let next = prev + (1.5 * directionRef.current);
+          if (next >= 100) {
+            next = 100;
+            directionRef.current = -1;
+          } else if (next <= 0) {
+            next = 0;
+            directionRef.current = 1;
+          }
           powerRef.current = next;
           return next;
         });
       }, 20);
     }
     return () => clearInterval(interval);
-  }, [gameState, direction]);
+  }, [gameState]);
 
   const getRandomPrize = (): PrizeType => {
     const rand = Math.random();
@@ -48,7 +53,7 @@ export default function App() {
     if (gameState === GameState.IDLE) {
       setGameState(GameState.POWERING);
       setPower(0);
-      setDirection(1);
+      directionRef.current = 1;
     } else if (gameState === GameState.POWERING) {
       const finalPower = powerRef.current;
       const isGoal = finalPower >= 82 && finalPower <= 98; // Sweet spot for EA style
