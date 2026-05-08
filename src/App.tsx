@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, CircleCheck, CircleX, Beer, Tv, Settings2 } from 'lucide-react';
 import { GameState, PrizeType, PRIZES } from './types';
 
-// Assets with elite football aesthetic
 const STADIUM_BG = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=100&w=2560";
 const RONALDO_RENDER = "https://images.unsplash.com/photo-1518604666860-9ed391f76460?auto=format&fit=crop&q=80&w=1200"; 
 const KEEPER_RENDER = "https://images.unsplash.com/photo-1431324155629-1a6eda1dc231?auto=format&fit=crop&q=80&w=1200";
@@ -14,23 +13,33 @@ export default function App() {
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
   const [power, setPower] = useState(0);
   const [result, setResult] = useState<{ success: boolean; prize?: PrizeType; diveDirection?: 'left' | 'right' | 'center' } | null>(null);
+  const [focused, setFocused] = useState(false);
   const powerRef = useRef<number>(0);
-  
   const directionRef = useRef<number>(1);
-  
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Forçar foco no container assim que a página carrega
+  useEffect(() => {
+    const focusContainer = () => {
+      if (containerRef.current) {
+        containerRef.current.focus();
+        setFocused(true);
+      }
+    };
+    focusContainer();
+    // Tenta novamente após 500ms para garantir
+    const t = setTimeout(focusContainer, 500);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (gameState === GameState.POWERING) {
       interval = setInterval(() => {
         setPower((prev) => {
           let next = prev + (1.5 * directionRef.current);
-          if (next >= 100) {
-            next = 100;
-            directionRef.current = -1;
-          } else if (next <= 0) {
-            next = 0;
-            directionRef.current = 1;
-          }
+          if (next >= 100) { next = 100; directionRef.current = -1; }
+          else if (next <= 0) { next = 0; directionRef.current = 1; }
           powerRef.current = next;
           return next;
         });
@@ -56,26 +65,18 @@ export default function App() {
       directionRef.current = 1;
     } else if (gameState === GameState.POWERING) {
       const finalPower = powerRef.current;
-      const isGoal = finalPower >= 82 && finalPower <= 98; // Sweet spot for EA style
-      
+      const isGoal = finalPower >= 82 && finalPower <= 98;
       setGameState(GameState.RUNNING);
-      
-      // Sequence: Run (800ms) -> Kick (Transition to KICKING)
       setTimeout(() => {
         setGameState(GameState.KICKING);
         const diveDir = Math.random() > 0.5 ? 'left' : 'right';
-        
         setResult({
           success: isGoal,
           prize: isGoal ? getRandomPrize() : undefined,
-          diveDirection: isGoal ? (diveDir === 'left' ? 'right' : 'left') : diveDir 
+          diveDirection: isGoal ? (diveDir === 'left' ? 'right' : 'left') : diveDir
         });
-
-        setTimeout(() => {
-          setGameState(GameState.RESULT);
-        }, 1200);
+        setTimeout(() => { setGameState(GameState.RESULT); }, 1200);
       }, 700);
-
     } else if (gameState === GameState.RESULT) {
       setGameState(GameState.IDLE);
       setResult(null);
@@ -83,45 +84,72 @@ export default function App() {
     }
   }, [gameState]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // OK / Enter / Confirm — suporte para Hisense, Samsung, LG e outros smart TVs
-      const isConfirm =
-        e.key === 'Enter' ||
-        e.key === ' ' ||
-        e.key === 'Accept' ||
-        e.key === 'Select' ||
-        e.key === 'MediaPlayPause' ||
-        e.keyCode === 13 ||   // Enter padrão
-        e.keyCode === 32 ||   // Space
-        e.keyCode === 179 ||  // Play/Pause (alguns comandos)
-        e.keyCode === 195 ||  // GamepadA / OK em Android TV
-        e.keyCode === 404 ||  // Hisense OK
-        e.keyCode === 406;    // Hisense confirm alternativo
+  // Handler universal de teclas — apanha QUALQUER tecla do comando TV
+  const handleKey = useCallback((e: KeyboardEvent) => {
+    const code = e.keyCode || e.which;
+    const key = e.key || '';
 
-      // Setas também ativam o jogo (útil para navegação TV)
-      const isArrow =
-        e.key === 'ArrowLeft' ||
-        e.key === 'ArrowRight' ||
-        e.key === 'ArrowUp' ||
-        e.key === 'ArrowDown' ||
-        e.keyCode === 37 ||
-        e.keyCode === 38 ||
-        e.keyCode === 39 ||
-        e.keyCode === 40;
+    const isAction =
+      // Confirmação / OK
+      key === 'Enter' || key === ' ' || key === 'Accept' || key === 'Select' ||
+      key === 'MediaPlayPause' || key === 'MediaPlay' ||
+      // Setas
+      key === 'ArrowLeft' || key === 'ArrowRight' ||
+      key === 'ArrowUp' || key === 'ArrowDown' ||
+      // Keycodes numéricos — cobrem Hisense, Samsung, LG, Android TV
+      code === 13 || code === 32 ||   // Enter, Space
+      code === 37 || code === 38 ||   // ArrowLeft, ArrowUp
+      code === 39 || code === 40 ||   // ArrowRight, ArrowDown
+      code === 179 || code === 227 || // MediaPlayPause
+      code === 195 ||                 // GamepadA (Android TV)
+      code === 404 || code === 406 || // Hisense OK
+      code === 10009 ||               // Samsung Back/OK
+      (code >= 400 && code <= 410);   // Hisense keycodes range
 
-      if (isConfirm || isArrow) {
-        e.preventDefault();
-        handleShoot();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (isAction) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleShoot();
+    }
   }, [handleShoot]);
 
+  useEffect(() => {
+    // Escuta tanto keydown como keyup — algumas TVs só disparam um deles
+    window.addEventListener('keydown', handleKey, true);
+    window.addEventListener('keyup', handleKey, true);
+    document.addEventListener('keydown', handleKey, true);
+    document.addEventListener('keyup', handleKey, true);
+    return () => {
+      window.removeEventListener('keydown', handleKey, true);
+      window.removeEventListener('keyup', handleKey, true);
+      document.removeEventListener('keydown', handleKey, true);
+      document.removeEventListener('keyup', handleKey, true);
+    };
+  }, [handleKey]);
+
+  const handleContainerClick = () => {
+    if (containerRef.current) containerRef.current.focus();
+    handleShoot();
+  };
+
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#050505] font-sans text-white select-none">
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      onClick={handleContainerClick}
+      onFocus={() => setFocused(true)}
+      className="relative w-full h-screen overflow-hidden bg-[#050505] font-sans text-white select-none outline-none"
+    >
+      {/* Overlay de foco — pede para clicar se ainda não tiver foco */}
+      {!focused && (
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="text-center">
+            <p className="text-6xl font-black text-white animate-pulse">CLICA PARA COMEÇAR</p>
+            <p className="text-2xl text-white/50 mt-4">Toca no ecrã ou pressiona OK</p>
+          </div>
+        </div>
+      )}
+
       {/* Starting Screen Overlay */}
       <AnimatePresence>
         {gameState === GameState.IDLE && (
@@ -166,7 +194,6 @@ export default function App() {
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40" />
-        {/* Floodlight Effect */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.1)_0%,transparent_70%)]" />
       </div>
 
@@ -225,21 +252,18 @@ export default function App() {
         
         {/* Baliza (Goal) */}
         <div className="relative w-full max-w-[1400px] aspect-[16/6] mb-10 z-10">
-          {/* Postes Metálicos (3D Deep View) */}
           <div className="absolute inset-0 border-[28px] border-[#ffffff] rounded-t-3xl shadow-[0_100px_250px_rgba(255,255,255,0.1)] z-30" />
           <div className="absolute inset-[-10px] border-[4px] border-white/20 rounded-t-[40px] z-20 blur-[2px]" />
           
-          {/* Rede Camada Pro (Realista) */}
           <div className="absolute inset-6 -inset-t-0 bg-white/5 backdrop-blur-[1px] rounded-t-2xl z-10 shadow-inner overflow-hidden" 
                style={{ backgroundImage: NET_PATTERN }}>
             <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-black/20" />
           </div>
           
-          {/* Fundo da Baliza (Depth) */}
           <div className="absolute inset-16 -inset-t-0 bg-black/40 rounded-t-xl z-0 opacity-60 flex items-center justify-center" 
                style={{ backgroundImage: NET_PATTERN }} />
 
-          {/* Guarda-Redes (Goalkeeper) */}
+          {/* Guarda-Redes */}
           <motion.div 
             className="absolute bottom-0 left-1/2 -translate-x-1/2 w-96 h-[120%] z-20 origin-bottom flex items-end justify-center"
             animate={gameState === GameState.KICKING ? (
@@ -268,17 +292,13 @@ export default function App() {
               <motion.div
                 initial={{ scale: 3, y: 500, x: 0, filter: 'blur(0px)' }}
                 animate={result?.success ? {
-                  scale: 0.5,
-                  y: -120,
+                  scale: 0.5, y: -120,
                   x: Math.random() * 500 - 250,
-                  rotate: 1440,
-                  filter: 'blur(1px)'
+                  rotate: 1440, filter: 'blur(1px)'
                 } : {
-                  scale: 0.5,
-                  y: -400,
+                  scale: 0.5, y: -400,
                   x: result?.diveDirection === 'left' ? 600 : -600,
-                  rotate: 720,
-                  filter: 'blur(2px)'
+                  rotate: 720, filter: 'blur(2px)'
                 }}
                 transition={{ duration: 0.5, ease: "circOut" }}
                 className="absolute left-1/2 bottom-0 w-24 h-24 -translate-x-1/2 z-30"
@@ -289,32 +309,22 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* Ronaldo Boneco */}
+        {/* Ronaldo */}
         <motion.div 
           className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center pointer-events-none"
           initial={{ y: 200, opacity: 0, scale: 1.5 }}
           animate={
             gameState === GameState.RUNNING ? { 
-              opacity: 1,
-              x: [-150, 100, -100, 150, 0], 
-              y: [0, -40, 0, -40, 0], 
-              scale: 1.7,
-              transition: { duration: 0.7 }
+              opacity: 1, x: [-150, 100, -100, 150, 0], y: [0, -40, 0, -40, 0], 
+              scale: 1.7, transition: { duration: 0.7 }
             } :
             gameState === GameState.KICKING ? { 
-              opacity: 1,
-              x: 250, 
-              y: -100,
-              rotate: 30, 
-              scale: 2.0,
+              opacity: 1, x: 250, y: -100, rotate: 30, scale: 2.0,
               filter: 'brightness(1.5) contrast(1.2) drop-shadow(0 0 80px rgba(0,255,0,0.6))'
             } :
             gameState === GameState.IDLE ? { 
-              opacity: 1,
-              y: 0,
-              x: -180,
-              scale: [1.7, 1.72, 1.7], 
-              transition: { repeat: Infinity, duration: 4 } 
+              opacity: 1, y: 0, x: -180,
+              scale: [1.7, 1.72, 1.7], transition: { repeat: Infinity, duration: 4 } 
             } :
             { opacity: 1, y: 0, x: -180 }
           }
@@ -323,9 +333,7 @@ export default function App() {
              <div className="absolute top-10 z-50 bg-[#001f3f] px-16 py-4 rounded-2xl border-4 border-[#00ff00] font-black italic text-7xl shadow-3xl skew-x-[-15deg] tracking-tighter">
                RONALDO
              </div>
-             
              <div className="relative w-full h-[90%] flex items-end justify-center">
-                {/* Sombra de contacto */}
                 <div className="absolute bottom-4 w-2/3 h-16 bg-black/90 blur-[50px] rounded-full z-0" />
                 <img 
                   src={RONALDO_RENDER} 
@@ -334,8 +342,6 @@ export default function App() {
                   referrerPolicy="no-referrer"
                 />
              </div>
-
-             {/* Player Indicator (FIFA Style) */}
              <motion.div 
                animate={{ y: [0, -15, 0] }}
                transition={{ repeat: Infinity, duration: 1.2 }}
@@ -348,12 +354,10 @@ export default function App() {
         <div className="absolute bottom-24 left-24">
           <div className="relative w-24 h-[600px] bg-black/60 backdrop-blur-3xl border-8 border-white/10 rounded-[40px] p-2 flex flex-col-reverse shadow-3xl overflow-hidden">
             <div className="absolute inset-x-0 bottom-[82%] top-[10%] bg-green-500/20 border-y-8 border-green-500/50 shadow-[inset_0_0_60px_rgba(34,197,94,0.3)] z-0" />
-            
             <motion.div 
               className="w-full rounded-2xl bg-gradient-to-t from-red-600 via-orange-500 to-green-400 shadow-[0_0_80px_rgba(255,255,255,0.4)] z-10"
               style={{ height: `${power}%` }}
             />
-            
             <div className="absolute -top-32 left-0 w-full text-center">
               <span className={`text-[12rem] font-black italic tracking-tighter leading-none ${power >= 82 && power <= 96 ? 'text-green-400 drop-shadow-[0_0_50px_rgba(34,197,94,1)]' : 'text-white'}`}>
                 {Math.round(power)}
@@ -390,7 +394,7 @@ export default function App() {
            </div>
         </div>
 
-        {/* Cinematic Results Overlay */}
+        {/* Results Overlay */}
         <AnimatePresence>
           {gameState === GameState.RESULT && result && (
             <motion.div 
@@ -413,7 +417,6 @@ export default function App() {
                     >
                       <Trophy size={250} className="text-[#FFD700] filter drop-shadow-[0_0_80px_rgba(255,215,0,0.6)]" />
                     </motion.div>
-                    
                     <motion.h1 
                       animate={{ scale: [1, 1.1, 1], rotate: [-2, 2, -2] }}
                       transition={{ duration: 0.5, repeat: Infinity }}
@@ -421,7 +424,6 @@ export default function App() {
                     >
                       GOLO!
                     </motion.h1>
-                    
                     <div className="bg-red-600 text-white px-32 py-14 rounded-[50px] shadow-3xl relative overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_1.5s_infinite]" />
                       <p className="text-4xl font-black opacity-80 mb-4 uppercase tracking-[0.3em]">RECOMPENSA MÁXIMA</p>
@@ -431,16 +433,13 @@ export default function App() {
                 ) : (
                   <>
                     <CircleX size={250} className="text-red-700 mb-16 opacity-90 filter drop-shadow-[0_0_50px_rgba(220,38,38,0.4)]" />
-                    <h1 className="text-[15rem] font-black italic tracking-tighter leading-none mb-4 text-red-600">
-                      FALHOU!
-                    </h1>
+                    <h1 className="text-[15rem] font-black italic tracking-tighter leading-none mb-4 text-red-600">FALHOU!</h1>
                     <p className="text-6xl font-black text-white/30 uppercase mb-20 tracking-widest">O Goleiro foi Gigante!</p>
                     <div className="bg-white/5 border border-white/10 px-20 py-10 rounded-[30px]">
                       <p className="text-3xl font-bold tracking-tight text-white/80">Precisão necessária: <span className="text-green-500">82-98%</span></p>
                     </div>
                   </>
                 )}
-                
                 <div className="mt-20 flex items-center gap-8 text-5xl font-black opacity-40 animate-pulse tracking-tighter italic uppercase">
                   <Tv size={64} />
                   <span>Clica no Comando para continuar</span>
@@ -478,18 +477,10 @@ export default function App() {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .animate-marquee {
-          animation: marquee 25s linear infinite;
-        }
-        .perspective-2500 {
-          perspective: 2500px;
-        }
-        .tracking-tightest {
-          letter-spacing: -0.06em;
-        }
-        .animate-shimmer {
-          animation: shimmer 2s linear infinite;
-        }
+        .animate-marquee { animation: marquee 25s linear infinite; }
+        .perspective-2500 { perspective: 2500px; }
+        .tracking-tightest { letter-spacing: -0.06em; }
+        .animate-shimmer { animation: shimmer 2s linear infinite; }
       `}</style>
     </div>
   );
