@@ -81,26 +81,26 @@ export default function App() {
   const isKicking = gameState === GameState.KICKING;
   const isResult  = gameState === GameState.RESULT;
   const shooting  = isKicking || isResult;
+  const side      = result?.side;
 
-  const side = result?.side;
-
-  // Bola: posição final nos CANTOS da baliza (bem nas extremidades, longe do keeper)
-  // O keeper está centrado a ~50%, os cantos são ~20% e ~77%
-  const ballLeft   = shooting
-    ? (side === 'left'   ? '20%'
-     : side === 'right'  ? '77%'
-     : '49%')    // centro → vai para o keeper
-    : '20%';     // posição inicial junto ao jogador
+  // Baliza ocupa: left=17%, right=83% (width=66%, centrada)
+  // Keeper no centro da baliza = 50% horizontal
+  // Cantos da bola ficam BEM dentro dos postes mas longe do keeper (centro)
+  // Esquerda: ~19% (poste esq + margem), Direita: ~78% (poste dir - margem)
+  // Bola inicial: junto ao pé do jogador (~17%)
+  const ballLeft = shooting
+    ? (side === 'left'   ? '19%'   // canto esquerdo da baliza
+     : side === 'right'  ? '78%'   // canto direito da baliza
+     : '49%')                      // centro → keeper
+    : '17%';
 
   const ballBottom = shooting
-    ? (side === 'center' ? '39%'   // baixo e ao centro para o keeper apanhar
-     : '56%')                      // canto alto da baliza
+    ? (side === 'center' ? '36%'   // vai ao GR no centro
+     : '60%')                      // vai alto nos cantos, longe do GR
     : '17%';
 
   const powerColor = power >= 80 ? '#22c55e' : power >= 50 ? '#f59e0b' : '#ef4444';
   const powerZone  = power >= 90 ? '⚽ DIREITA' : power >= 80 ? '⚽ ESQUERDA' : '🧤 CENTRO';
-
-  // Keeper animação: só salta para a frente quando defende ao centro
   const keeperAnim = shooting && side === 'center' ? 'keeperSave .5s ease-out forwards' : 'none';
 
   return (
@@ -114,25 +114,24 @@ export default function App() {
         html,body,#root{width:100%;height:100%;margin:0;overflow:hidden}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
         @keyframes resultIn{0%{opacity:0;transform:scale(.9)}100%{opacity:1;transform:scale(1)}}
-        @keyframes keeperSave{0%{transform:translateY(0)}40%{transform:translateY(-22px) scale(1.07)}100%{transform:translateY(0)}}
+        @keyframes keeperSave{0%{transform:translateY(0)}40%{transform:translateY(-26px) scale(1.08)}100%{transform:translateY(0)}}
       `}</style>
 
       {/* Campo */}
       <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,#0e3320,#0a2418 55%,#061810)' }} />
 
-      {/* Baliza — postes grandes */}
+      {/* Baliza — 66% de largura, centrada */}
       <div style={{
-        position:'absolute', left:'50%', top:'8%',
+        position:'absolute', left:'17%', top:'8%',
         width:'66%', height:'30%',
         border:'8px solid #fff', borderBottom:'none',
-        borderRadius:'20px 20px 0 0', transform:'translateX(-50%)'
+        borderRadius:'20px 20px 0 0'
       }} />
       {/* Rede */}
       <div style={{
-        position:'absolute', left:'50%', top:'9.5%',
-        width:'62%', height:'28%',
-        backgroundImage:'repeating-linear-gradient(90deg,rgba(255,255,255,.1) 0,rgba(255,255,255,.1) 1px,transparent 1px,transparent 32px),repeating-linear-gradient(0deg,rgba(255,255,255,.1) 0,rgba(255,255,255,.1) 1px,transparent 1px,transparent 32px)',
-        transform:'translateX(-50%)'
+        position:'absolute', left:'17%', top:'9.5%',
+        width:'66%', height:'28.5%',
+        backgroundImage:'repeating-linear-gradient(90deg,rgba(255,255,255,.1) 0,rgba(255,255,255,.1) 1px,transparent 1px,transparent 32px),repeating-linear-gradient(0deg,rgba(255,255,255,.1) 0,rgba(255,255,255,.1) 1px,transparent 1px,transparent 32px)'
       }} />
 
       {/* HUD topo */}
@@ -165,25 +164,23 @@ export default function App() {
       )}
 
       {/* ======= JOGADOR VERMELHO (2x) ======= */}
-      {/* Escala 2x: width=140, height=320 */}
-      <div style={{ position:'absolute', left:'6%', bottom:'10%', width:140, height:320, transformOrigin:'50% 100%' }}>
+      <div style={{ position:'absolute', left:'4%', bottom:'8%', width:140, height:320, transformOrigin:'50% 100%' }}>
         {/* Cabeça */}
         <div style={{ position:'absolute', left:'50%', top:0, width:56, height:56, borderRadius:'50%', background:'#f0c090', transform:'translateX(-50%)', border:'3px solid #c9956a' }} />
         {/* Cabelo */}
         <div style={{ position:'absolute', left:'50%', top:0, width:56, height:22, borderRadius:'50% 50% 0 0', background:'#3a1a00', transform:'translateX(-50%)' }} />
-        {/* Corpo / Camisola */}
-        <div style={{ position:'absolute', left:'50%', top:52, width:60, height:104, background:'#d72a30', borderRadius:14, transform:'translateX(-50%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <span style={{ fontSize:11, fontWeight:900, color:'#fff', letterSpacing:1, textAlign:'center', lineHeight:1.1 }}>RONALDO</span>
+        {/* Corpo / Camisola RONALDO */}
+        <div style={{ position:'absolute', left:'50%', top:52, width:60, height:104, background:'#d72a30', borderRadius:14, transform:'translateX(-50%)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column' }}>
+          <span style={{ fontSize:11, fontWeight:900, color:'#fff', letterSpacing:1 }}>RONALDO</span>
+          <span style={{ fontSize:18, fontWeight:900, color:'rgba(255,255,255,.5)', marginTop:2 }}>7</span>
         </div>
-        {/* Número 7 nas costas (visível como detalhe frontal) */}
-        <div style={{ position:'absolute', left:'50%', top:110, width:28, height:28, transform:'translateX(-50%)', fontSize:20, fontWeight:900, color:'rgba(255,255,255,.35)', textAlign:'center' }}>7</div>
         {/* Braço esq */}
         <div style={{ position:'absolute', left:4, top:68, width:56, height:14, background:'#d72a30', borderRadius:7, transform:'rotate(22deg)' }} />
         <div style={{ position:'absolute', left:2, top:78, width:24, height:13, background:'#f0c090', borderRadius:6, transform:'rotate(22deg)' }} />
         {/* Braço dir */}
         <div style={{ position:'absolute', right:4, top:68, width:56, height:14, background:'#d72a30', borderRadius:7, transform:'rotate(-22deg)' }} />
         <div style={{ position:'absolute', right:2, top:78, width:24, height:13, background:'#f0c090', borderRadius:6, transform:'rotate(-22deg)' }} />
-        {/* Calcões */}
+        {/* Calções */}
         <div style={{ position:'absolute', left:'50%', top:152, width:64, height:40, background:'#1a1a80', borderRadius:8, transform:'translateX(-50%)' }} />
         {/* Perna esq */}
         <div style={{ position:'absolute', left:'36%', top:188, width:18, height:96, background:'#fff', borderRadius:8, transform:'rotate(8deg)' }} />
@@ -193,8 +190,7 @@ export default function App() {
           position:'absolute', right:'36%', top:188, width:18, height:96,
           background:'#fff', borderRadius:8,
           transform: isKicking ? 'rotate(-58deg) translateY(-18px)' : 'rotate(-18deg)',
-          transformOrigin:'50% 0%',
-          transition:'transform .18s'
+          transformOrigin:'50% 0%', transition:'transform .18s'
         }} />
         <div style={{
           position:'absolute', right:'28%', top: isKicking ? 196 : 258,
@@ -204,31 +200,32 @@ export default function App() {
         }} />
       </div>
 
-      {/* ======= GUARDA-REDES AZUL (2x) — fundo da baliza ======= */}
-      {/* Posicionado bem dentro da baliza, no centro */}
+      {/* ======= GUARDA-REDES AZUL (2x) — CENTRO DA BALIZA, BEM RECUADO ======= */}
+      {/* Baliza: left=17% a right=83%. Centro = 50%. GR centrado = left:50% - 70px */}
+      {/* bottom: coloca o GR dentro da baliza, não à frente dela */}
       <div style={{
         position:'absolute',
-        left:'calc(50% - 70px)',  // centrado (metade de 140px)
-        bottom:'32%',             // dentro da baliza, bem ao fundo
+        left:'calc(50% - 70px)',  /* centro horizontal da baliza */
+        bottom:'14%',             /* dentro da baliza, bem recuado */
         width:140, height:320, transformOrigin:'50% 100%',
         animation: keeperAnim,
         zIndex:8
       }}>
         {/* Cabeça */}
         <div style={{ position:'absolute', left:'50%', top:0, width:56, height:56, borderRadius:'50%', background:'#f0c090', transform:'translateX(-50%)', border:'3px solid #c9956a' }} />
-        {/* Luvas no topo */}
+        {/* Touca */}
         <div style={{ position:'absolute', left:'50%', top:0, width:56, height:22, borderRadius:'50% 50% 0 0', background:'#1a3a00', transform:'translateX(-50%)' }} />
         {/* Corpo */}
         <div style={{ position:'absolute', left:'50%', top:52, width:60, height:104, background:'#1e67d6', borderRadius:14, transform:'translateX(-50%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <span style={{ fontSize:11, fontWeight:900, color:'#fff', letterSpacing:1 }}>GR</span>
         </div>
-        {/* Braço esq — estendido */}
+        {/* Braço esq — estendido com luva amarela */}
         <div style={{ position:'absolute', left:-28, top:72, width:80, height:14, background:'#1e67d6', borderRadius:7, transform:'rotate(-30deg)' }} />
-        <div style={{ position:'absolute', left:-40, top:64, width:26, height:22, background:'#f5d020', borderRadius:6, transform:'rotate(-30deg)' }} />
-        {/* Braço dir — estendido */}
+        <div style={{ position:'absolute', left:-42, top:63, width:28, height:22, background:'#f5d020', borderRadius:6, transform:'rotate(-30deg)' }} />
+        {/* Braço dir — estendido com luva amarela */}
         <div style={{ position:'absolute', right:-28, top:72, width:80, height:14, background:'#1e67d6', borderRadius:7, transform:'rotate(30deg)' }} />
-        <div style={{ position:'absolute', right:-40, top:64, width:26, height:22, background:'#f5d020', borderRadius:6, transform:'rotate(30deg)' }} />
-        {/* Calcões */}
+        <div style={{ position:'absolute', right:-42, top:63, width:28, height:22, background:'#f5d020', borderRadius:6, transform:'rotate(30deg)' }} />
+        {/* Calções */}
         <div style={{ position:'absolute', left:'50%', top:152, width:64, height:40, background:'#0a3a8a', borderRadius:8, transform:'translateX(-50%)' }} />
         {/* Perna esq */}
         <div style={{ position:'absolute', left:'36%', top:188, width:18, height:96, background:'#1e67d6', borderRadius:8, transform:'rotate(5deg)' }} />
@@ -247,7 +244,7 @@ export default function App() {
         background:'#fff', border:'3px solid #222',
         boxShadow:'0 2px 10px rgba(0,0,0,.6)',
         transition: shooting ? 'left .44s ease-out, bottom .44s ease-out' : 'none',
-        zIndex:15
+        zIndex:20
       }} />
 
       {/* ECRÃ INICIAL */}
