@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { GameState, PrizeType, PRIZES } from './types';
+import { GameState, PrizeType } from './types';
 
 const OK_KEYS = new Set([13, 32, 179, 195, 404, 406]);
+
+// Prémio baseado no power exato no momento do remate
+const getPrizeByPower = (p: number): PrizeType => {
+  if (p >= 96) return PrizeType.REGUA_1;   // 96–100% → 1 Régua
+  if (p >= 90) return PrizeType.FINO_3;    // 90–96%  → 3 Finos
+  return PrizeType.FINO_1;                 // 80–90%  → 1 Fino
+};
 
 export default function App() {
   const [gameState, setGameState] = useState<GameState>(GameState.IDLE);
@@ -34,13 +41,6 @@ export default function App() {
     return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
   }, [gameState]);
 
-  const getRandomPrize = (): PrizeType => {
-    const rand = Math.random();
-    let cum = 0;
-    for (const p of PRIZES) { cum += p.probability; if (rand <= cum) return p.type; }
-    return PrizeType.FINO_1;
-  };
-
   const shoot = () => {
     if (gameState === GameState.IDLE) {
       setResult(null); setPower(0); dirRef.current = 1;
@@ -53,7 +53,11 @@ export default function App() {
       const isGoal = side !== 'center';
       setGameState(GameState.KICKING);
       setTimeout(() => {
-        setResult({ success: isGoal, prize: isGoal ? getRandomPrize() : undefined, side });
+        setResult({
+          success: isGoal,
+          prize: isGoal ? getPrizeByPower(p) : undefined,
+          side
+        });
         setGameState(GameState.RESULT);
       }, 560);
       return;
@@ -87,24 +91,19 @@ export default function App() {
   /*
    * LOGICA DA BOLA:
    * - Posicao inicial: junto ao pe do Ronaldo (left:14%, bottom:38%)
-   * - GOLO esquerdo:  vai DIRETO para left:19%, bottom:82% (canto sup esq da baliza)
-   * - GOLO direito:   vai DIRETO para left:77%, bottom:82% (canto sup dir da baliza)
+   * - GOLO esquerdo:  vai DIRETO para left:20%, bottom:88% (canto sup esq — bem acima do GR)
+   * - GOLO direito:   vai DIRETO para left:76%, bottom:88% (canto sup dir — bem acima do GR)
    * - CENTRO (defesa): vai para left:49%, bottom:66% (centro onde esta o GR)
-   *
-   * IMPORTANTE: a bola COMECA no pe do Ronaldo (esquerda),
-   * e vai DIRETAMENTE para o destino final sem passar pelo centro.
-   * Nao ha waypoint intermedio — so uma CSS transition de A para B.
    */
   const ballLeft = shooting
-    ? (side === 'left'  ? '19%'
-     : side === 'right' ? '77%'
+    ? (side === 'left'  ? '20%'
+     : side === 'right' ? '76%'
      : '49%')
-    : '14%';  // junto ao pe do Ronaldo
+    : '14%';
 
   const ballBottom = shooting
-    ? (side === 'center' ? '66%'
-     : '82%')
-    : '38%';  // altura do pe do Ronaldo
+    ? (side === 'center' ? '66%' : '88%')
+    : '38%';
 
   const powerColor = power >= 80 ? '#22c55e' : power >= 50 ? '#f59e0b' : '#ef4444';
   const powerZone  = power >= 90 ? '⚽ DIREITA' : power >= 80 ? '⚽ ESQUERDA' : '🧤 CENTRO';
@@ -173,11 +172,10 @@ export default function App() {
         </div>
       )}
 
-      {/* ======= GR AZUL (metade do tamanho: 70x140) dentro da baliza ======= */}
-      {/* Baliza: bottom 62%-92%. GR bottom:66% => fica dentro da baliza */}
+      {/* ======= GR AZUL (70x140) dentro da baliza ======= */}
       <div style={{
         position:'absolute',
-        left:'calc(50% - 35px)',  /* centro: metade de 70px */
+        left:'calc(50% - 35px)',
         bottom:'64%',
         width:70, height:140,
         transformOrigin:'50% 100%',
@@ -229,7 +227,7 @@ export default function App() {
         }} />
       </div>
 
-      {/* BOLA: parte do pe do Ronaldo e vai DIRETO ao destino */}
+      {/* BOLA: parte do pe do Ronaldo e vai DIRETO ao canto da baliza */}
       <div style={{
         position:'absolute',
         left: ballLeft,
