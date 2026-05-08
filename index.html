@@ -4,6 +4,49 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Penalty Showdown: Portugal Edition</title>
+    <script>
+      // VIDAA OS (Hisense) - captura teclas antes do React montar
+      // Guarda a ultima tecla para o React ler
+      window.__lastTVKey = null;
+      window.__tvKeyListeners = [];
+
+      function __dispatchTVKey(code) {
+        window.__lastTVKey = code;
+        window.__tvKeyListeners.forEach(function(fn) { fn(code); });
+      }
+
+      // Escuta em modo capture para apanhar tudo
+      document.addEventListener('keydown', function(e) {
+        var code = e.keyCode || e.which || 0;
+        // VIDAA: OK=13, Left=37, Up=38, Right=39, Down=40, Back=8
+        if (code === 13 || code === 37 || code === 38 || code === 39 || code === 40 || code === 8) {
+          e.preventDefault();
+          e.stopPropagation();
+          __dispatchTVKey(code);
+        }
+      }, true);
+
+      document.addEventListener('keyup', function(e) {
+        var code = e.keyCode || e.which || 0;
+        if (code === 13 || code === 37 || code === 38 || code === 39 || code === 40) {
+          e.preventDefault();
+          e.stopPropagation();
+          __dispatchTVKey(code);
+        }
+      }, true);
+
+      // Forcar foco no body assim que possivel
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.setAttribute('tabindex', '0');
+        document.body.focus();
+        // Re-foca se a TV tirar o foco
+        setInterval(function() {
+          if (document.activeElement === document.body || !document.activeElement) {
+            document.body.focus();
+          }
+        }, 2000);
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
