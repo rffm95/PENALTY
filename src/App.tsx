@@ -17,11 +17,12 @@ export default function App() {
     f(); setTimeout(f, 300); setTimeout(f, 1000);
   }, []);
 
+  // Velocidade 2x mais rapida: 4.8 por tick
   useEffect(() => {
     if (gameState !== GameState.POWERING) return;
     const step = () => {
       setPower(p => {
-        let n = p + dirRef.current * 2.4;
+        let n = p + dirRef.current * 4.8;
         if (n >= 100) { n = 100; dirRef.current = -1; }
         if (n <= 0)   { n = 0;   dirRef.current = 1; }
         powerRef.current = n;
@@ -84,29 +85,26 @@ export default function App() {
   const side      = result?.side;
 
   /*
-   * LAYOUT (em % do ecrã):
-   * Baliza: top 8%–38% => bottom 62%–92%
-   * GR: bottom 64% (dentro da baliza, bem ao fundo)
-   * GR horizontal: centro do ecrã = 50%, GR width=140 => left = calc(50%-70px)
+   * LOGICA DA BOLA:
+   * - Posicao inicial: junto ao pe do Ronaldo (left:14%, bottom:38%)
+   * - GOLO esquerdo:  vai DIRETO para left:19%, bottom:82% (canto sup esq da baliza)
+   * - GOLO direito:   vai DIRETO para left:77%, bottom:82% (canto sup dir da baliza)
+   * - CENTRO (defesa): vai para left:49%, bottom:66% (centro onde esta o GR)
    *
-   * Bola inicial: junto ao Ronaldo, bottom 15%, left 18%
-   * Bola GOLO esquerda:  left 18%, bottom 80% (canto sup esq da baliza)
-   * Bola GOLO direita:   left 78%, bottom 80% (canto sup dir da baliza)
-   * Bola CENTRO (defesa): left 49%, bottom 66% (vai bater no GR)
-   *
-   * O GR está em left=calc(50%-70px)=~43% e bottom=64%
-   * Os cantos (18% e 78%) estão longe do centro (43%-53%), sem cruzar.
+   * IMPORTANTE: a bola COMECA no pe do Ronaldo (esquerda),
+   * e vai DIRETAMENTE para o destino final sem passar pelo centro.
+   * Nao ha waypoint intermedio — so uma CSS transition de A para B.
    */
   const ballLeft = shooting
-    ? (side === 'left'  ? '18%'
-     : side === 'right' ? '78%'
+    ? (side === 'left'  ? '19%'
+     : side === 'right' ? '77%'
      : '49%')
-    : '18%';
+    : '14%';  // junto ao pe do Ronaldo
 
   const ballBottom = shooting
-    ? (side === 'center' ? '66%'   // vai ao GR
-     : '80%')                      // canto alto, dentro da baliza
-    : '15%';
+    ? (side === 'center' ? '66%'
+     : '82%')
+    : '38%';  // altura do pe do Ronaldo
 
   const powerColor = power >= 80 ? '#22c55e' : power >= 50 ? '#f59e0b' : '#ef4444';
   const powerZone  = power >= 90 ? '⚽ DIREITA' : power >= 80 ? '⚽ ESQUERDA' : '🧤 CENTRO';
@@ -123,23 +121,18 @@ export default function App() {
         html,body,#root{width:100%;height:100%;margin:0;overflow:hidden}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
         @keyframes resultIn{0%{opacity:0;transform:scale(.9)}100%{opacity:1;transform:scale(1)}}
-        @keyframes keeperSave{0%{transform:translateY(0)}45%{transform:translateY(-30px) scale(1.1)}100%{transform:translateY(0)}}
+        @keyframes keeperSave{0%{transform:translateY(0)}45%{transform:translateY(-20px) scale(1.08)}100%{transform:translateY(0)}}
       `}</style>
 
       {/* Campo */}
       <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,#0e3320 0%,#0a2418 60%,#061810 100%)' }} />
-      {/* Linhas do campo */}
-      <div style={{ position:'absolute', bottom:0, left:'10%', right:'10%', height:'2px', background:'rgba(255,255,255,.15)' }} />
 
-      {/* ===== BALIZA ===== */}
-      {/* top: 8%, height: 30% => ocupa de 8% a 38% do topo */}
-      {/* Em bottom: de 62% a 92% */}
+      {/* BALIZA: top 8% a 38% => bottom 62% a 92% */}
       <div style={{
         position:'absolute', left:'17%', top:'8%',
         width:'66%', height:'30%',
         border:'8px solid #fff', borderBottom:'none',
-        borderRadius:'20px 20px 0 0',
-        zIndex:5
+        borderRadius:'20px 20px 0 0', zIndex:5
       }} />
       {/* Rede */}
       <div style={{
@@ -148,13 +141,8 @@ export default function App() {
         backgroundImage:'repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0,rgba(255,255,255,.08) 1px,transparent 1px,transparent 32px),repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0,rgba(255,255,255,.08) 1px,transparent 1px,transparent 32px)',
         zIndex:4
       }} />
-      {/* Barra inferior da baliza (linha do chão da baliza) */}
-      <div style={{
-        position:'absolute', left:'17%', top:'38%',
-        width:'66%', height:'8px',
-        background:'rgba(255,255,255,.4)',
-        zIndex:5
-      }} />
+      {/* Linha do chao da baliza */}
+      <div style={{ position:'absolute', left:'17%', top:'38%', width:'66%', height:'8px', background:'rgba(255,255,255,.35)', zIndex:5 }} />
 
       {/* HUD topo */}
       <div style={{
@@ -168,7 +156,7 @@ export default function App() {
         {isResult  && 'OK para jogar de novo'}
       </div>
 
-      {/* Barra de força */}
+      {/* Barra de forca */}
       {isPower && (
         <div style={{
           position:'absolute', left:18, top:'50%', transform:'translateY(-50%)',
@@ -179,71 +167,54 @@ export default function App() {
             position:'absolute', bottom:0, left:0, width:'100%',
             height:`${power}%`,
             background:`linear-gradient(to top,#d61f2a,${powerColor})`,
-            transition:'height .05s linear'
+            transition:'height .04s linear'
           }} />
-          {/* linha 80% */}
           <div style={{ position:'absolute', bottom:'80%', left:0, right:0, height:2, background:'rgba(255,255,255,.8)' }} />
         </div>
       )}
 
-      {/* ======= GUARDA-REDES AZUL ======= */}
-      {/* Dentro da baliza: bottom=64% coloca-o mesmo dentro da zona da baliza */}
+      {/* ======= GR AZUL (metade do tamanho: 70x140) dentro da baliza ======= */}
+      {/* Baliza: bottom 62%-92%. GR bottom:66% => fica dentro da baliza */}
       <div style={{
         position:'absolute',
-        left:'calc(50% - 70px)',
+        left:'calc(50% - 35px)',  /* centro: metade de 70px */
         bottom:'64%',
-        width:140, height:280,
+        width:70, height:140,
         transformOrigin:'50% 100%',
         animation: keeperAnim,
         zIndex:9
       }}>
-        {/* Cabeça */}
-        <div style={{ position:'absolute', left:'50%', top:0, width:56, height:56, borderRadius:'50%', background:'#f0c090', transform:'translateX(-50%)', border:'3px solid #c9956a' }} />
-        {/* Touca */}
-        <div style={{ position:'absolute', left:'50%', top:0, width:56, height:22, borderRadius:'50% 50% 0 0', background:'#1a9a00', transform:'translateX(-50%)' }} />
-        {/* Corpo */}
-        <div style={{ position:'absolute', left:'50%', top:52, width:60, height:96, background:'#1e67d6', borderRadius:14, transform:'translateX(-50%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <span style={{ fontSize:12, fontWeight:900, color:'#fff', letterSpacing:1 }}>GR</span>
+        <div style={{ position:'absolute', left:'50%', top:0, width:28, height:28, borderRadius:'50%', background:'#f0c090', transform:'translateX(-50%)', border:'2px solid #c9956a' }} />
+        <div style={{ position:'absolute', left:'50%', top:0, width:28, height:11, borderRadius:'50% 50% 0 0', background:'#1a9a00', transform:'translateX(-50%)' }} />
+        <div style={{ position:'absolute', left:'50%', top:26, width:30, height:48, background:'#1e67d6', borderRadius:8, transform:'translateX(-50%)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ fontSize:8, fontWeight:900, color:'#fff' }}>GR</span>
         </div>
-        {/* Braço esq com luva */}
-        <div style={{ position:'absolute', left:-30, top:68, width:82, height:14, background:'#1e67d6', borderRadius:7, transform:'rotate(-28deg)' }} />
-        <div style={{ position:'absolute', left:-44, top:58, width:28, height:24, background:'#f5d020', borderRadius:6, transform:'rotate(-28deg)' }} />
-        {/* Braço dir com luva */}
-        <div style={{ position:'absolute', right:-30, top:68, width:82, height:14, background:'#1e67d6', borderRadius:7, transform:'rotate(28deg)' }} />
-        <div style={{ position:'absolute', right:-44, top:58, width:28, height:24, background:'#f5d020', borderRadius:6, transform:'rotate(28deg)' }} />
-        {/* Calções */}
-        <div style={{ position:'absolute', left:'50%', top:144, width:64, height:36, background:'#0a3a8a', borderRadius:8, transform:'translateX(-50%)' }} />
-        {/* Pernas */}
-        <div style={{ position:'absolute', left:'36%', top:176, width:18, height:80, background:'#1e67d6', borderRadius:8, transform:'rotate(5deg)' }} />
-        <div style={{ position:'absolute', left:'32%', top:244, width:22, height:16, background:'#111', borderRadius:5 }} />
-        <div style={{ position:'absolute', right:'36%', top:176, width:18, height:80, background:'#1e67d6', borderRadius:8, transform:'rotate(-5deg)' }} />
-        <div style={{ position:'absolute', right:'32%', top:244, width:22, height:16, background:'#111', borderRadius:5 }} />
+        <div style={{ position:'absolute', left:-14, top:34, width:40, height:7, background:'#1e67d6', borderRadius:4, transform:'rotate(-28deg)' }} />
+        <div style={{ position:'absolute', left:-21, top:29, width:14, height:12, background:'#f5d020', borderRadius:3, transform:'rotate(-28deg)' }} />
+        <div style={{ position:'absolute', right:-14, top:34, width:40, height:7, background:'#1e67d6', borderRadius:4, transform:'rotate(28deg)' }} />
+        <div style={{ position:'absolute', right:-21, top:29, width:14, height:12, background:'#f5d020', borderRadius:3, transform:'rotate(28deg)' }} />
+        <div style={{ position:'absolute', left:'50%', top:72, width:32, height:18, background:'#0a3a8a', borderRadius:4, transform:'translateX(-50%)' }} />
+        <div style={{ position:'absolute', left:'36%', top:88, width:9, height:40, background:'#1e67d6', borderRadius:4, transform:'rotate(5deg)' }} />
+        <div style={{ position:'absolute', left:'32%', top:122, width:11, height:8, background:'#111', borderRadius:3 }} />
+        <div style={{ position:'absolute', right:'36%', top:88, width:9, height:40, background:'#1e67d6', borderRadius:4, transform:'rotate(-5deg)' }} />
+        <div style={{ position:'absolute', right:'32%', top:122, width:11, height:8, background:'#111', borderRadius:3 }} />
       </div>
 
-      {/* ======= JOGADOR VERMELHO (RONALDO) ======= */}
-      {/* bottom: 38% = fica no chão fora da baliza, à esquerda */}
+      {/* ======= RONALDO (140x280) fora da baliza, a esquerda ======= */}
       <div style={{ position:'absolute', left:'4%', bottom:'38%', width:140, height:280, transformOrigin:'50% 100%', zIndex:10 }}>
-        {/* Cabeça */}
         <div style={{ position:'absolute', left:'50%', top:0, width:56, height:56, borderRadius:'50%', background:'#f0c090', transform:'translateX(-50%)', border:'3px solid #c9956a' }} />
-        {/* Cabelo */}
         <div style={{ position:'absolute', left:'50%', top:0, width:56, height:22, borderRadius:'50% 50% 0 0', background:'#3a1a00', transform:'translateX(-50%)' }} />
-        {/* Corpo */}
         <div style={{ position:'absolute', left:'50%', top:52, width:60, height:96, background:'#d72a30', borderRadius:14, transform:'translateX(-50%)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column' }}>
           <span style={{ fontSize:10, fontWeight:900, color:'#fff', letterSpacing:1 }}>RONALDO</span>
-          <span style={{ fontSize:18, fontWeight:900, color:'rgba(255,255,255,.5)' }}>7</span>
+          <span style={{ fontSize:18, fontWeight:900, color:'rgba(255,255,255,.45)' }}>7</span>
         </div>
-        {/* Braço esq */}
         <div style={{ position:'absolute', left:4, top:64, width:52, height:13, background:'#d72a30', borderRadius:7, transform:'rotate(22deg)' }} />
         <div style={{ position:'absolute', left:2, top:74, width:22, height:12, background:'#f0c090', borderRadius:6, transform:'rotate(22deg)' }} />
-        {/* Braço dir */}
         <div style={{ position:'absolute', right:4, top:64, width:52, height:13, background:'#d72a30', borderRadius:7, transform:'rotate(-22deg)' }} />
         <div style={{ position:'absolute', right:2, top:74, width:22, height:12, background:'#f0c090', borderRadius:6, transform:'rotate(-22deg)' }} />
-        {/* Calções */}
         <div style={{ position:'absolute', left:'50%', top:144, width:64, height:36, background:'#1a1a80', borderRadius:8, transform:'translateX(-50%)' }} />
-        {/* Perna esq */}
         <div style={{ position:'absolute', left:'36%', top:176, width:18, height:80, background:'#fff', borderRadius:8, transform:'rotate(8deg)' }} />
         <div style={{ position:'absolute', left:'32%', top:244, width:22, height:16, background:'#111', borderRadius:5, transform:'rotate(8deg)' }} />
-        {/* Perna dir — chuta */}
         <div style={{
           position:'absolute', right:'36%', top:176, width:18, height:80,
           background:'#fff', borderRadius:8,
@@ -258,7 +229,7 @@ export default function App() {
         }} />
       </div>
 
-      {/* BOLA (zIndex:20 — sempre à frente dos bonecos) */}
+      {/* BOLA: parte do pe do Ronaldo e vai DIRETO ao destino */}
       <div style={{
         position:'absolute',
         left: ballLeft,
@@ -270,7 +241,7 @@ export default function App() {
         zIndex:20
       }} />
 
-      {/* ECRÃ INICIAL */}
+      {/* ECRA INICIAL */}
       {isIdle && (
         <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(0,0,0,.25)', pointerEvents:'none', zIndex:40 }}>
           <div style={{ background:'rgba(0,0,0,.78)', border:'2px solid rgba(255,255,255,.15)', borderRadius:22, padding:'30px 44px', textAlign:'center' }}>
