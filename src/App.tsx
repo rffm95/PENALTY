@@ -85,8 +85,37 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13) handleShoot();
+      // OK / Enter / Confirm — suporte para Hisense, Samsung, LG e outros smart TVs
+      const isConfirm =
+        e.key === 'Enter' ||
+        e.key === ' ' ||
+        e.key === 'Accept' ||
+        e.key === 'Select' ||
+        e.key === 'MediaPlayPause' ||
+        e.keyCode === 13 ||   // Enter padrão
+        e.keyCode === 32 ||   // Space
+        e.keyCode === 179 ||  // Play/Pause (alguns comandos)
+        e.keyCode === 195 ||  // GamepadA / OK em Android TV
+        e.keyCode === 404 ||  // Hisense OK
+        e.keyCode === 406;    // Hisense confirm alternativo
+
+      // Setas também ativam o jogo (útil para navegação TV)
+      const isArrow =
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        e.keyCode === 37 ||
+        e.keyCode === 38 ||
+        e.keyCode === 39 ||
+        e.keyCode === 40;
+
+      if (isConfirm || isArrow) {
+        e.preventDefault();
+        handleShoot();
+      }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleShoot]);
@@ -465,4 +494,3 @@ export default function App() {
     </div>
   );
 }
-
